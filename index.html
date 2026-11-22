@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Household Budget Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Household Budget Planner</h1>
+      <p class="sub">Enter income, costs and savings on the Budget tab — every line converts to a monthly figure and rolls up to the year. Drag a row by its handle (or focus the handle and use the arrow keys) to reorder it. Untick a row's Active box to leave it out without deleting it, or tick "Skip if part-time" on costs that go away when someone works part-time. Try what-ifs on the Scenarios tab without touching your budget, and see one person at full time, 50% and not working side by side on the Overview tab. Everything is kept in this browser; export a JSON or Excel copy anytime and import it back later. Use Print report to print or save a PDF of the budget and scenario sections you choose.</p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" type="button" id="tabBudget" aria-controls="pBudget" aria-selected="true">Budget</button>
+    <button class="tab" role="tab" type="button" id="tabScen" aria-controls="pScen" aria-selected="false" tabindex="-1">Scenarios</button>
+    <button class="tab" role="tab" type="button" id="tabOv" aria-controls="pOv" aria-selected="false" tabindex="-1">Overview</button>
+  </nav>
+
+  <div class="tabpanel" role="tabpanel" id="pBudget" aria-labelledby="tabBudget">
+  <section class="toolbar" aria-label="Import and export">
+    <div class="tb-group">
+      <span class="note" id="saveState" role="status">Kept in this browser</span>
+    </div>
+    <div class="tb-group">
+      <button class="btn" type="button" data-report>Print report</button>
+      <button class="btn" id="expJson" type="button">Export .json</button>
+      <button class="btn" id="expXlsx" type="button">Export .xlsx</button>
+      <button class="btn" id="importBtn" type="button">Import .json or .xlsx</button>
+      <input class="vh" type="file" id="importFile" tabindex="-1" aria-hidden="true" accept=".json,.xlsx,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <span class="confirm" id="resetArea"></span>
+    </div>
+    <p class="note msg" id="msg" role="status" hidden></p>
+  </section>
+
+  <section class="summary" aria-label="Summary">
+    <div class="stat"><span class="lbl">Monthly income</span><span class="big" id="sInc">$0</span><span class="yr num" id="sIncY"></span></div>
+    <div class="stat"><span class="lbl">Monthly costs</span><span class="big" id="sExp">$0</span><span class="yr num" id="sExpY"></span></div>
+    <div class="stat"><span class="lbl">Monthly surplus</span><span class="big" id="sNet">$0</span><span class="yr num" id="sNetY"></span></div>
+    <div class="stat"><span class="lbl">Share of income spent</span><span class="big" id="sPct">—</span><span class="yr" id="sPctNote"></span></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Where the money goes</h2><span class="note">Monthly estimate and annual rollup by category</span></div>
+    <div class="bar" id="bar" aria-hidden="true"></div>
+    <div class="legend" id="legend" aria-hidden="true"></div>
+    <div class="scroll"><table>
+      <thead><tr><th>Category</th><th class="r">Monthly</th><th class="r">Annual</th><th class="r">Share</th></tr></thead>
+      <tbody id="rollBody"></tbody>
+      <tfoot><tr><td>Total costs</td><td class="r num" id="rollM"></td><td class="r num" id="rollY"></td><td class="r num">100%</td></tr></tfoot>
+    </table></div>
+  </section>
+
+  <section class="panel edit">
+    <div class="panel-head"><h2>Income</h2><span class="note">Use take-home pay. Pick how often each deposit arrives.</span></div>
+    <div class="scroll"><table>
+      <thead><tr><th class="col-drag"><span class="vh">Reorder</span></th><th class="col-on">Active</th><th class="col-name">Source</th><th class="col-amt r">Amount</th><th class="col-freq">Paid</th><th class="r">Monthly</th><th class="r">Annual</th><th></th></tr></thead>
+      <tbody id="incBody"></tbody>
+      <tfoot><tr><td></td><td></td><td>Total income<span class="offnote" id="incOff"></span></td><td></td><td></td><td class="r num" id="incM"></td><td class="r num" id="incY"></td><td></td></tr></tfoot>
+    </table></div>
+    <div><button class="btn" type="button" id="addInc">+ Add income</button></div>
+  </section>
+
+  <section class="panel edit">
+    <div class="panel-head"><h2>Fixed costs</h2><span class="note">Your starting estimates</span></div>
+    <div class="scroll"><table>
+      <thead><tr><th class="col-drag"><span class="vh">Reorder</span></th><th class="col-on">Active</th><th class="col-pt" title="Leave this cost out whenever someone works part-time in a scenario">Skip if part-time</th><th class="col-name">Item</th><th class="col-amt r">Amount</th><th class="col-freq">Billed</th><th class="col-cat">Category</th><th class="r">Monthly</th><th class="r">Annual</th><th></th></tr></thead>
+      <tbody id="fixBody"></tbody>
+      <tfoot><tr><td></td><td></td><td></td><td>Fixed total<span class="offnote" id="fixOff"></span></td><td></td><td></td><td></td><td class="r num" id="fixM"></td><td class="r num" id="fixY"></td><td></td></tr></tfoot>
+    </table></div>
+    <div><button class="btn" type="button" id="addFix">+ Add fixed cost</button></div>
+  </section>
+
+  <section class="panel edit">
+    <div class="panel-head"><h2>Education</h2><span class="note">Tuition, tutoring, books, activities and other school costs</span></div>
+    <div class="empty" id="eduEmpty">No education costs yet. Add one below or tap a common item to start.</div>
+    <div class="scroll" id="eduWrap"><table>
+      <thead><tr><th class="col-drag"><span class="vh">Reorder</span></th><th class="col-on">Active</th><th class="col-pt" title="Leave this cost out whenever someone works part-time in a scenario">Skip if part-time</th><th class="col-name">Item</th><th class="col-amt r">Amount</th><th class="col-freq">Paid</th><th class="r">Monthly</th><th class="r">Annual</th><th></th></tr></thead>
+      <tbody id="eduBody"></tbody>
+      <tfoot><tr><td></td><td></td><td></td><td>Education total<span class="offnote" id="eduOff"></span></td><td></td><td></td><td class="r num" id="eduM"></td><td class="r num" id="eduY"></td><td></td></tr></tfoot>
+    </table></div>
+    <div class="chips" id="eduChips">
+      <button class="btn" type="button" id="addEdu">+ Add education cost</button>
+    </div>
+  </section>
+
+  <section class="panel edit">
+    <div class="panel-head"><h2>Discretionary spending</h2><span class="note">Flexible spending you can dial up or down</span></div>
+    <div class="empty" id="discEmpty">No discretionary items yet. Add one below or tap a common category to start.</div>
+    <div class="scroll" id="discWrap"><table>
+      <thead><tr><th class="col-drag"><span class="vh">Reorder</span></th><th class="col-on">Active</th><th class="col-pt" title="Leave this cost out whenever someone works part-time in a scenario">Skip if part-time</th><th class="col-name">Item</th><th class="col-amt r">Amount</th><th class="col-freq">Spent</th><th class="r">Monthly</th><th class="r">Annual</th><th></th></tr></thead>
+      <tbody id="discBody"></tbody>
+      <tfoot><tr><td></td><td></td><td></td><td>Discretionary total<span class="offnote" id="discOff"></span></td><td></td><td></td><td class="r num" id="discM"></td><td class="r num" id="discY"></td><td></td></tr></tfoot>
+    </table></div>
+    <div class="chips" id="chips">
+      <button class="btn" type="button" id="addDisc">+ Add discretionary item</button>
+    </div>
+  </section>
+
+  <section class="panel edit">
+    <div class="panel-head"><h2>Reserve funds</h2><span class="note">Current balances you have set aside — savings, checking, investments</span></div>
+    <div class="resstats" aria-label="Reserve summary">
+      <div><span class="lbl">Total reserves</span><span class="big" id="rTot">$0</span><span class="yr" id="rTotNote"></span></div>
+      <div><span class="lbl">Covers costs for</span><span class="big" id="rRun">—</span><span class="yr" id="rRunNote"></span></div>
+      <div><span class="lbl">With no discretionary spending</span><span class="big" id="rLean">—</span><span class="yr" id="rLeanNote"></span></div>
+      <div><span class="lbl">Fixed costs only</span><span class="big" id="rCore">—</span><span class="yr" id="rCoreNote"></span></div>
+    </div>
+    <div class="empty" id="resEmpty">No accounts yet. Add one below or tap a common account to start.</div>
+    <div class="scroll" id="resWrap"><table>
+      <thead><tr><th class="col-drag"><span class="vh">Reorder</span></th><th class="col-on">Active</th><th class="col-name">Account</th><th class="col-type">Type</th><th class="col-amt r">Current balance</th><th></th></tr></thead>
+      <tbody id="resBody"></tbody>
+      <tfoot><tr><td></td><td></td><td>Total reserves<span class="offnote" id="resOff"></span></td><td></td><td class="r num" id="resT"></td><td></td></tr></tfoot>
+    </table></div>
+    <div class="chips" id="resChips">
+      <button class="btn" type="button" id="addRes">+ Add account</button>
+    </div>
+  </section>
+
+  <p class="note">Conversions: weekly × 52 ÷ 12, every two weeks × 26 ÷ 12, twice a month × 2, quarterly ÷ 3, annual ÷ 12. Figures are planning estimates, rounded to the cent.</p>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="pScen" aria-labelledby="tabScen" hidden>
+    <section class="toolbar" aria-label="Scenario controls">
+      <div class="tb-group"><span class="note">Starts from the active rows on the Budget tab. Changes here never alter your budget.</span></div>
+      <div class="tb-group"><button class="btn" type="button" data-report>Print report</button><button class="btn" type="button" id="scenReset">Reset scenario</button></div>
+    </section>
+
+    <section class="summary" aria-label="Scenario summary">
+      <div class="stat"><span class="lbl">Scenario income</span><span class="big" id="scInc">$0</span><span class="delta num" id="scIncD"></span></div>
+      <div class="stat"><span class="lbl">Scenario costs</span><span class="big" id="scExp">$0</span><span class="delta num" id="scExpD"></span></div>
+      <div class="stat"><span class="lbl" id="scNetL">Monthly surplus</span><span class="big" id="scNet">$0</span><span class="delta num" id="scNetD"></span></div>
+      <div class="stat"><span class="lbl">Reserves</span><span class="big" id="scRes">—</span><span class="delta" id="scResN"></span></div>
+    </section>
+
+    <section class="panel scen-inc">
+      <div class="panel-head"><h2>Income by person</h2><span class="note">Pick an employment level for each income. Each cell shows the household's monthly surplus or shortfall at that level, with everything else as set in this scenario.</span></div>
+      <div class="empty" id="scIncEmpty" hidden>No active income yet. Add it on the Budget tab.</div>
+      <div class="scroll" id="scIncWrap"><table>
+        <thead><tr><th class="col-name">Source</th><th class="r">Budgeted / mo</th><th class="lv">0%</th><th class="lv">25%</th><th class="lv">50%</th><th class="lv">75%</th><th class="lv">100%</th><th class="r">Scenario / mo</th></tr></thead>
+        <tbody id="scIncBody"></tbody>
+        <tfoot><tr><td>Total income</td><td class="r num" id="scIncB"></td><td colspan="5"></td><td class="r num" id="scIncT"></td></tr></tfoot>
+      </table></div>
+      <p class="note">Assumes pay scales with hours: 50% employment earns half the budgeted take-home. Whenever anyone is below 100% (including 0%), costs marked "Skip if part-time" on the Budget tab are left out.</p>
+    </section>
+
+    <section class="panel adj-cats">
+      <div class="panel-head"><h2>Spending by category</h2><span class="note">Scale a category by percent, or set the monthly amount outright</span></div>
+      <div class="empty" id="scCatEmpty" hidden>No active costs yet. Add them on the Budget tab.</div>
+      <div class="scroll" id="scCatWrap"><table>
+        <thead><tr><th>Category</th><th class="r">Budgeted / mo</th><th style="width:30%">Adjust</th><th class="r">Scenario / mo</th><th class="r">Change</th></tr></thead>
+        <tbody id="scCatBody"></tbody>
+        <tfoot><tr><td>Total costs</td><td class="r num" id="scCatB"></td><td></td><td class="r num" id="scCatT"></td><td class="r num" id="scCatD"></td></tr></tfoot>
+      </table></div>
+      <p class="note" id="scPtNote"></p>
+      <datalist id="pctLevels"><option value="0"><option value="25"><option value="50"><option value="75"><option value="90"><option value="100"><option value="110"><option value="125"><option value="150"></datalist>
+    </section>
+
+    <section class="panel proj">
+      <div class="panel-head"><h2>Reserves under this scenario</h2><span class="note">Active reserve balances, carried forward at the scenario's monthly surplus or shortfall, with growth on investment accounts</span></div>
+      <div class="empty" id="scProjEmpty" hidden>No active reserve accounts yet. Add them on the Budget tab.</div>
+      <div class="inv-box" id="scInvBox" hidden>
+        <div class="scroll"><table>
+          <thead><tr><th>Investment account</th><th class="r">Balance</th><th class="r col-rate">Annual return</th><th class="r">Est. monthly return</th></tr></thead>
+          <tbody id="scInvBody"></tbody>
+          <tfoot><tr><td>Total</td><td class="r num" id="scInvT"></td><td></td><td class="r num" id="scInvR"></td></tr></tfoot>
+        </table></div>
+        <label class="check"><input class="tog" type="checkbox" id="scInvInc"> Count investment returns as income in this scenario</label>
+        <p class="note" id="scInvNote"></p>
+      </div>
+      <p class="note" id="scInvNone" hidden>No active investment accounts. Set an account's type to Investment on the Budget tab to estimate returns (6% a year by default).</p>
+      <div class="scroll" id="scProjWrap"><table>
+        <thead><tr><th>After</th><th class="r">Projected balance</th><th class="r">Change from today</th><th class="r">Est. monthly investment return</th></tr></thead>
+        <tbody id="scProjBody"></tbody>
+      </table></div>
+      <p class="note">Monthly return = balance × annual rate ÷ 12, compounded monthly in the projection. A shortfall draws on non-investment accounts first. Returns are estimates, not guarantees.</p>
+    </section>
+
+    <section class="panel nonmon">
+      <div class="panel-head"><h2>Life beyond the numbers</h2><span class="note">Non-monetary costs and benefits of working less than full time. Rate each by how much it matters to you.</span></div>
+      <div class="nm-balance" id="ptBalance" hidden>
+        <div class="nm-bar" aria-hidden="true"><span class="b" id="ptBarB"></span><span class="c" id="ptBarC"></span></div>
+        <div class="nm-legend"><span id="ptBenSum"></span><span class="lean" id="ptLean"></span><span id="ptCostSum"></span></div>
+      </div>
+      <div class="nm-cols">
+        <div class="nm-col">
+          <h3><span class="sw" style="background:var(--pos)"></span>Benefits</h3>
+          <div class="empty" id="ptBenEmpty">Nothing logged yet. What would working less give you?</div>
+          <div class="scroll" id="ptBenWrap"><table>
+            <thead><tr><th class="col-drag"><span class="vh">Reorder</span></th><th>Benefit</th><th class="col-imp">Importance</th><th class="col-added">Added</th><th class="col-x"></th></tr></thead>
+            <tbody id="ptBenBody"></tbody>
+          </table></div>
+          <div class="chips" id="ptBenChips"><button class="btn" type="button" id="addPtBen">+ Add benefit</button></div>
+        </div>
+        <div class="nm-col">
+          <h3><span class="sw" style="background:var(--neg)"></span>Costs</h3>
+          <div class="empty" id="ptCostEmpty">Nothing logged yet. What would working less cost you, beyond money?</div>
+          <div class="scroll" id="ptCostWrap"><table>
+            <thead><tr><th class="col-drag"><span class="vh">Reorder</span></th><th>Cost</th><th class="col-imp">Importance</th><th class="col-added">Added</th><th class="col-x"></th></tr></thead>
+            <tbody id="ptCostBody"></tbody>
+          </table></div>
+          <div class="chips" id="ptCostChips"><button class="btn" type="button" id="addPtCost">+ Add cost</button></div>
+        </div>
+      </div>
+      <p class="note">Saved in this browser with the rest of your budget, and included in JSON and Excel exports. Not part of any dollar figure above. The balance counts Low as 1, Medium as 2 and High as 3.</p>
+    </section>
+
+    <section class="panel ov-set" id="ovSet">
+      <div class="panel-head"><h2>Overview tab</h2><span class="note">Choose what the Overview tab shows when it compares one person at full time, 50% and not working, with everyone else full time</span></div>
+      <div class="ov-pick" id="ovPick" role="group" aria-label="Items shown on the Overview tab"></div>
+      <div class="chips">
+        <button class="chip" type="button" data-ovpick="all">Select all</button>
+        <button class="chip" type="button" data-ovpick="default">Defaults</button>
+        <button class="chip" type="button" data-ovpick="none">Clear</button>
+        <button class="btn" type="button" id="ovGo">Open Overview</button>
+      </div>
+      <p class="note">The overview uses the spending adjustments and investment-returns setting above. Employment levels set in "Income by person" don't affect it. Pick which line items drop out at 50% and 0% on the Overview tab itself.</p>
+    </section>
+  </div>
+
+  <div class="tabpanel" role="tabpanel" id="pOv" aria-labelledby="tabOv" hidden>
+    <section class="toolbar" aria-label="Overview controls">
+      <fieldset class="tb-group ov-who-set"><legend class="ov-who">People changing hours</legend><div class="ov-who-list" id="ovWho"></div></fieldset>
+      <div class="tb-group"><button class="btn" type="button" id="ovEdit">Choose what's shown</button><button class="btn" type="button" data-report>Print report</button></div>
+      <p class="note msg" id="ovNote"></p>
+    </section>
+
+    <div class="empty" id="ovEmpty" hidden></div>
+
+    <section class="panel" id="ovCmp">
+      <div class="panel-head"><h2>Side by side</h2><span class="note">Monthly figures unless noted</span></div>
+      <div id="ovChartWrap"><p class="lbl">Monthly surplus or shortfall</p><div class="ov-chart" id="ovChart"></div></div>
+      <div class="scroll" id="ovTblWrap"><table class="ov-tbl">
+        <thead id="ovHead"></thead>
+        <tbody id="ovBody"></tbody>
+      </table></div>
+    </section>
+
+    <section class="panel ov-skip" id="ovSkipPanel">
+      <div class="panel-head"><h2>Part-time line items</h2><span class="note">Tick every cost that goes away at 50% employment or when not working</span></div>
+      <p class="note" id="ovSkipNote"></p>
+      <div class="empty" id="ovSkipEmpty" hidden>No active costs yet. Add them on the Budget tab.</div>
+      <div class="scroll" id="ovSkipWrap"><table>
+        <thead><tr><th>Item</th><th>List</th><th class="r">Budgeted / mo</th>
+          <th class="c col-sk"><label><input class="tog" type="checkbox" data-skall="50" aria-label="Leave out every item at 50%"> At 50%</label></th>
+          <th class="c col-sk"><label><input class="tog" type="checkbox" data-skall="0" aria-label="Leave out every item when not working"> At 0%</label></th></tr></thead>
+        <tbody id="ovSkipBody"></tbody>
+        <tfoot><tr><td>Saved per month</td><td></td><td></td><td class="c num" id="ovSkipT50"></td><td class="c num" id="ovSkipT0"></td></tr></tfoot>
+      </table></div>
+      <div class="chips">
+        <button class="chip" type="button" data-ovskip="budget">Match "Skip if part-time" ticks</button>
+        <button class="chip" type="button" data-ovskip="copy">Copy 50% picks to 0%</button>
+        <button class="chip" type="button" data-ovskip="none">Leave out nothing</button>
+      </div>
+    </section>
+
+    <section class="panel" id="ovCats">
+      <div class="panel-head"><h2>Spending by category</h2><span class="note">Monthly, after Scenario-tab adjustments</span></div>
+      <div class="scroll"><table class="ov-tbl">
+        <thead id="ovCatHead"></thead>
+        <tbody id="ovCatBody"></tbody>
+        <tfoot id="ovCatFoot"></tfoot>
+      </table></div>
+    </section>
+
+    <section class="panel" id="ovNm">
+      <div class="panel-head"><h2>Life beyond the numbers</h2><span class="note">Non-monetary costs and benefits of working less, from the Scenarios tab</span></div>
+      <div id="ovNmBody"></div>
+    </section>
+  </div>
+</div>
+
+<dialog class="rpt-dlg" id="rptDlg" aria-labelledby="rptTitle">
+  <form id="rptForm">
+    <div>
+      <h2 id="rptTitle">Print a report</h2>
+      <p class="note">Choose what to include. The overview prints first, with the person and items chosen for the Overview tab; the budget, scenario and working-less sections each start on a new page, and so do the budget's fixed costs. Scenario sections use the employment levels and adjustments currently set on the Scenarios tab. To save a PDF, pick "Save as PDF" in the print dialog.</p>
+    </div>
+    <label class="field">Report title <input id="rptName" name="rptName" maxlength="120" autocomplete="off"></label>
+    <div class="rpt-pick"><span class="note">Select:</span>
+      <button class="chip" type="button" data-pick="all">Everything</button>
+      <button class="chip" type="button" data-pick="ov">Overview only</button>
+      <button class="chip" type="button" data-pick="budget">Budget only</button>
+      <button class="chip" type="button" data-pick="scen">Scenario only</button>
+      <button class="chip" type="button" data-pick="none">None</button>
+    </div>
+    <fieldset id="rptG-ov"><legend>Overview</legend></fieldset>
+    <div class="rpt-grid">
+      <fieldset id="rptG-budget"><legend>Budget</legend></fieldset>
+      <fieldset id="rptG-scen"><legend>Scenario</legend></fieldset>
+    </div>
+    <fieldset id="rptG-other"><legend>Working less</legend></fieldset>
+    <label class="check"><input class="tog" type="checkbox" id="rptInactive" name="rptInactive"> List inactive rows too (they stay out of totals)</label>
+    <label class="field">Notes <span class="note">Optional, printed under the title</span><textarea id="rptNotes" name="rptNotes" rows="3" maxlength="2000"></textarea></label>
+    <div class="dlg-actions">
+      <button class="btn" type="button" id="rptCancel">Cancel</button>
+      <button class="btn primary" type="submit" id="rptGo">Print</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="report"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
